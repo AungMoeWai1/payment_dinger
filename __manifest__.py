@@ -16,7 +16,7 @@
         "data/payment_provider_data.xml",
     ],
     'external_dependencies': {
-        'python': ['dinger-payment']
+        'python': ['dinger-payment','crypto_js','pycrytodome','rsa']
     },
     "post_init_hook": "post_init_hook",
     "uninstall_hook": "uninstall_hook",

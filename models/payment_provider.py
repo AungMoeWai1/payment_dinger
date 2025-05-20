@@ -1,7 +1,10 @@
 from odoo import api, fields, models
 from odoo.addons.payment_dinger import const
-from dinger_payment import get_prebuild_form_url
+from dinger_payment import get_prebuild_form_url,decrypt_aes_ecb
 from urllib.parse import urlencode, quote_plus
+from .encryption import rsa_encrypt_chunked,generate_hash_value,decrypt
+from Crypto.PublicKey import RSA
+from .encryption_rsa import encrypt,generate_hash_value
 
 class PaymentProvider(models.Model):
     _inherit = "payment.provider"
@@ -55,16 +58,32 @@ class PaymentProvider(models.Model):
             "merchantName": "Wai Yan",
         }
 
-        public_key = (
-            "-----BEGIN PUBLIC KEY-----\n"
-            f"{self.public_key}"
-            "\n-----END PUBLIC KEY-----"
-        )
 
-        encrypted_payload, hash_value = get_prebuild_form_url(public_key=public_key, secretkey=self.merchant_key, **data)
+        payload = {
+            "providerName": "AYA Pay",
+            "methodName": "QR",
+            "totalAmount": 2200,
+            "orderId": "11111",
+            "customerPhone": "09787747310",
+            "customerName": "test user name",
+            "items": "[{‘name':'Mac','amount':'1100','quantity':'2'}]"
+        }
+
+        public_key =("-----BEGIN PUBLIC KEY-----\n"
+                     f"{self.public_key}"
+                     "\n-----END PUBLIC KEY-----")
+
+        # encrypted_payload, hash_value = get_prebuild_form_url(public_key=public_key, secretkey=self.merchant_key, **payload)
+
+        e_p=encrypt(payload,public_key)
+        h_v=generate_hash_value(e_p,self.merchant_key)
 
         baseurl = self._dinger_get_api_url()
-        url = f"{baseurl}?{urlencode({'payload': encrypted_payload, 'hashValue': hash_value}, quote_via=quote_plus)}"
+
+        url=f"{baseurl}?payload:{e_p},hashValue:{h_v}"
+
+        import pdb;pdb.set_trace()
+
         return url
 
     def _get_default_payment_method_codes(self):

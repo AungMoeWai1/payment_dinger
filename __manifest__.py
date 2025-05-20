@@ -15,6 +15,9 @@
         "data/payment_method_data.xml",
         "data/payment_provider_data.xml",
     ],
+    'external_dependencies': {
+        'python': ['dinger-payment']
+    },
     "post_init_hook": "post_init_hook",
     "uninstall_hook": "uninstall_hook",
     "images": ["static/description/banner.png"],

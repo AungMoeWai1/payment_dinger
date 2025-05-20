@@ -164,4 +164,3 @@ class PaymentTransaction(models.Model):
         # except Exception as e:
         #     _logger.error("Error processing Dinger notification: %s", str(e))
         #     raise ValidationError(_("Error processing the payment notification."))
-

@@ -48,8 +48,8 @@ class PaymentTransaction(models.Model):
             for line in self.sale_order_ids[0].order_line:
                 items.append({
                     'name': line.product_id.name,
-                    'amount': line.price_unit,
-                    'quantity': line.product_uom_qty,
+                    'amount': str(line.price_unit),
+                    'quantity': str(line.product_uom_qty),
                 })
 
         return {
@@ -64,7 +64,7 @@ class PaymentTransaction(models.Model):
             "postalCode": self.partner_id.zip,
             "billAddress": self.partner_id.street,
             "billCity": self.partner_id.city,
-            "items": json.dumps(items),
+            "items": items,
             'description': self.reference,
             'locale': user_lang,
         }
@@ -74,8 +74,6 @@ class PaymentTransaction(models.Model):
         if provider_code != 'dinger' or len(tx) == 1:
             return tx
 
-        import pdb;
-        pdb.set_trace()
         # notification_data={'reference': self.reference, 'payment_details': '1234', 'simulated_state':self.state}
         tx = self.search(
             [('reference', '=', notification_data.get('ref')), ('provider_code', '=', 'dinger')]
@@ -112,55 +110,14 @@ class PaymentTransaction(models.Model):
 
         payment_status = notification_data.get('status')
         # Update payment state based on the status
-        if payment_status == 'pending':
-            self._set_pending()
-        elif payment_status == 'authorized':
-            self._set_authorized()
-        elif payment_status == 'paid':
+        # if payment_status == 'pending':
+        #     self._set_pending()
+        # elif payment_status == 'authorized':
+        #     self._set_authorized()
+        if payment_status == 'SUCCESS':
             self._set_done()
-        elif payment_status in ['expired', 'canceled', 'failed']:
+        elif payment_status in ['DECLINED','TIMEOUT', 'CANCELLED', 'SYSTEM_ERROR','ERROR']:
             self._set_canceled(_("Payment status: %s", payment_status))
         else:
             _logger.error("Received invalid payment status: %s", payment_status)
             self._set_error(_("Invalid payment status: %s", payment_status))
-
-        # Get encrypted paymentResult and checksum from notification_data
-        # encrypted_payment_result = notification_data.get('paymentResult')
-        # checksum = notification_data.get('checksum')
-        #
-        # if not encrypted_payment_result or not checksum:
-        #     raise ValidationError(_("Invalid notification data received."))
-        #
-        # try:
-        #     # Step 1: Decrypt paymentResult using AES and Base64
-        #     secret_key = 'd655c33205363f5450427e6b6193e466'  # From Dinger API documentation
-        #     cipher = AES.new(secret_key.encode(), AES.MODE_ECB)
-        #     decrypted = unpad(cipher.decrypt(base64.b64decode(encrypted_payment_result)), AES.block_size)
-        #     decrypted_str = decrypted.decode('utf-8')
-        #
-        #     # Step 2: Verify the checksum
-        #     calculated_checksum = hashlib.sha256(decrypted_str.encode('utf-8')).hexdigest()
-        #     if calculated_checksum != checksum:
-        #         raise ValidationError(_("Checksum verification failed."))
-        #
-        #     # Step 3: Process the decrypted payment result
-        #     payment_result = json.loads(decrypted_str)
-        #     self.provider_reference = payment_result.get('transactionNum')  # Transaction ID from Dinger
-        #     payment_status = payment_result.get('status')
-        #
-        #     # Update payment state based on the status
-        #     if payment_status == 'pending':
-        #         self._set_pending()
-        #     elif payment_status == 'authorized':
-        #         self._set_authorized()
-        #     elif payment_status == 'paid':
-        #         self._set_done()
-        #     elif payment_status in ['expired', 'canceled', 'failed']:
-        #         self._set_canceled(_("Payment status: %s", payment_status))
-        #     else:
-        #         _logger.error("Received invalid payment status: %s", payment_status)
-        #         self._set_error(_("Invalid payment status: %s", payment_status))
-        #
-        # except Exception as e:
-        #     _logger.error("Error processing Dinger notification: %s", str(e))
-        #     raise ValidationError(_("Error processing the payment notification."))

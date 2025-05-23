@@ -2,7 +2,7 @@ import logging
 import json
 from odoo import http
 from odoo.http import route, request, Controller
-from decryption_aes_ecb_pkcs7padding import decrypt
+from .decryption_aes_ecb_pkcs7padding import decrypt
 
 class DingerPayController(Controller):
     _webhook_url = '/payment/dinger/webhook'
@@ -52,8 +52,5 @@ class DingerPayController(Controller):
             'status': status
         })
 
-        #Redirect to the payment success page if status is success
-        if status=="SUCCESS":
-            return request.redirect('/payment/status')
-
-
+        #Redirect to the payment success page
+        return request.redirect('/payment/status')

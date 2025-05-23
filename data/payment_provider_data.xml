@@ -14,8 +14,24 @@
         <field
                 name="payment_method_ids"
                 eval="[(6, 0, [
-                   ref('payment_dinger.payment_method_dinger_kpay'),
                    ref('payment_dinger.payment_method_dinger_ayapay'),
+                   ref('payment_dinger.payment_method_dinger_cbpay'),
+                   ref('payment_dinger.payment_method_dinger_citizenspay'),
+                   ref('payment_dinger.payment_method_dinger_jcb'),
+                   ref('payment_dinger.payment_method_dinger_kbz'),
+                   ref('payment_dinger.payment_method_dinger_kpay'),
+                   ref('payment_dinger.payment_method_dinger_mab_mobile_banking'),
+                   ref('payment_dinger.payment_method_dinger_master'),
+                   ref('payment_dinger.payment_method_dinger_m_pite_san'),
+                   ref('payment_dinger.payment_method_dinger_mpt_pay'),
+                   ref('payment_dinger.payment_method_dinger_mytelpay'),
+                   ref('payment_dinger.payment_method_dinger_okdollar'),
+                   ref('payment_dinger.payment_method_dinger_onepay'),
+                   ref('payment_dinger.payment_method_dinger_sai_sai_pay'),
+                   ref('payment_dinger.payment_method_dinger_true_money'),
+                   ref('payment_dinger.payment_method_dinger_uab_pay'),
+                   ref('payment_dinger.payment_method_dinger_visa'),
+                   ref('payment_dinger.payment_method_dinger_wave_pay'),
                ])]"
         />
     </record>

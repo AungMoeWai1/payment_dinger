@@ -25,21 +25,28 @@ class PaymentProvider(models.Model):
     )
 
     public_key = fields.Char(
-        string="Dinger Wallet Public Key",
+        string="Public Key",
         help="Wallet public key from the Dinger dashboard.",
         required_if_provider="dinger",
         groups="base.group_system",
     )
 
-    merchant_key = fields.Char(
-        string="Dinger Wallet Merchant Key",
+    merchant_name = fields.Char(
+        string="Merchant Name",
         help="Wallet Merchant key from the Dinger dashboard.",
         required_if_provider="dinger",
         groups="base.group_system",
     )
-    client_key = fields.Char(
-        string="Dinger Wallet Client Key",
-        help="Wallet Client key from the Dinger dashboard.",
+
+    merchant_key = fields.Char(
+        string="Merchant Key",
+        help="Wallet Merchant key from the Dinger dashboard.",
+        required_if_provider="dinger",
+        groups="base.group_system",
+    )
+    client_id = fields.Char(
+        string="Client Id",
+        help="Wallet Client ID from the Dinger dashboard.",
         required_if_provider="dinger",
         groups="base.group_system",
     )
@@ -68,7 +75,7 @@ class PaymentProvider(models.Model):
         items = json.dumps(items_list)
 
         data = {
-            "clientId": self.client_key,
+            "clientId": self.client_id,
             "publicKey": self.public_key,
             "items": items,
             "customerName": resource_data.get("customerName"),

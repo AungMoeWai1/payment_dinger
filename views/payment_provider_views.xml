@@ -19,7 +19,11 @@
                                 password="True"
                         />
                         <field
-                                name="client_key"
+                                name="client_id"
+                                required="code == 'dinger' and state != 'disabled'"
+                        />
+                        <field
+                                name="merchant_name"
                                 required="code == 'dinger' and state != 'disabled'"
                         />
                         <field

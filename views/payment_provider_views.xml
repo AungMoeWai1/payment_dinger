@@ -19,9 +19,20 @@
                                 password="True"
                         />
                         <field
+                                name="client_id"
+                                required="code == 'dinger' and state != 'disabled'"
+                        />
+                        <field
+                                name="merchant_name"
+                                required="code == 'dinger' and state != 'disabled'"
+                        />
+                        <field
                                 name="merchant_key"
                                 required="code == 'dinger' and state != 'disabled'"
-                                password="True"
+                        />
+                        <field
+                                name="secret_key"
+                                required="code == 'dinger' and state != 'disabled'"
                         />
                     </group>
                 </group>

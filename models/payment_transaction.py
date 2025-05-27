@@ -1,17 +1,20 @@
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
+"""
+After start creating new transaction, override my operations
+"""
 import logging
-import json
 from odoo.http import request
-from odoo import _, models, api, fields
-from odoo.tools import float_round
+from odoo import _, models, api
 from odoo.exceptions import ValidationError
 from odoo.addons.payment_dinger import const
-from odoo.addons.payment_dinger.controllers.main import DingerPayController
-
 _logger = logging.getLogger(__name__)
 
 
 class PaymentTransaction(models.Model):
+    """
+    when start make transaction , start create payload information
+    send it to create url
+    and to start url redirect , put it in the rendering_values
+    """
     _inherit = 'payment.transaction'
 
     def _get_specific_rendering_values(self, transaction):
@@ -25,14 +28,15 @@ class PaymentTransaction(models.Model):
         payload = self._dinger_prepare_preference_request_payload()
 
         # Make the request to Dinger to create the payment
-        url = self.provider_id._dinger_make_request(resource_data=payload)
+        url,encrypted_payload,hash_value = self.provider_id.dinger_make_request(resource_data=payload)
 
         # Set reference to transaction (important for matching)
         self.provider_reference = payload.get("orderId")
 
         rendering_values = {
-            'api_url': url,
+            'api_url': url
         }
+        print(url)
         return rendering_values
 
     def _dinger_prepare_preference_request_payload(self):
@@ -64,7 +68,7 @@ class PaymentTransaction(models.Model):
             "postalCode": self.partner_id.zip,
             "billAddress": self.partner_id.street,
             "billCity": self.partner_id.city,
-            "items": json.dumps(items),
+            "items": items,
             'description': self.reference,
             'locale': user_lang,
         }
@@ -74,8 +78,6 @@ class PaymentTransaction(models.Model):
         if provider_code != 'dinger' or len(tx) == 1:
             return tx
 
-        import pdb;
-        pdb.set_trace()
         # notification_data={'reference': self.reference, 'payment_details': '1234', 'simulated_state':self.state}
         tx = self.search(
             [('reference', '=', notification_data.get('ref')), ('provider_code', '=', 'dinger')]
@@ -112,55 +114,14 @@ class PaymentTransaction(models.Model):
 
         payment_status = notification_data.get('status')
         # Update payment state based on the status
-        if payment_status == 'pending':
-            self._set_pending()
-        elif payment_status == 'authorized':
-            self._set_authorized()
-        elif payment_status == 'paid':
+        # if payment_status == 'pending':
+        #     self._set_pending()
+        # elif payment_status == 'authorized':
+        #     self._set_authorized()
+        if payment_status == 'SUCCESS':
             self._set_done()
-        elif payment_status in ['expired', 'canceled', 'failed']:
+        elif payment_status in ['DECLINED','TIMEOUT', 'CANCELLED', 'SYSTEM_ERROR','ERROR']:
             self._set_canceled(_("Payment status: %s", payment_status))
         else:
             _logger.error("Received invalid payment status: %s", payment_status)
             self._set_error(_("Invalid payment status: %s", payment_status))
-
-        # Get encrypted paymentResult and checksum from notification_data
-        # encrypted_payment_result = notification_data.get('paymentResult')
-        # checksum = notification_data.get('checksum')
-        #
-        # if not encrypted_payment_result or not checksum:
-        #     raise ValidationError(_("Invalid notification data received."))
-        #
-        # try:
-        #     # Step 1: Decrypt paymentResult using AES and Base64
-        #     secret_key = 'd655c33205363f5450427e6b6193e466'  # From Dinger API documentation
-        #     cipher = AES.new(secret_key.encode(), AES.MODE_ECB)
-        #     decrypted = unpad(cipher.decrypt(base64.b64decode(encrypted_payment_result)), AES.block_size)
-        #     decrypted_str = decrypted.decode('utf-8')
-        #
-        #     # Step 2: Verify the checksum
-        #     calculated_checksum = hashlib.sha256(decrypted_str.encode('utf-8')).hexdigest()
-        #     if calculated_checksum != checksum:
-        #         raise ValidationError(_("Checksum verification failed."))
-        #
-        #     # Step 3: Process the decrypted payment result
-        #     payment_result = json.loads(decrypted_str)
-        #     self.provider_reference = payment_result.get('transactionNum')  # Transaction ID from Dinger
-        #     payment_status = payment_result.get('status')
-        #
-        #     # Update payment state based on the status
-        #     if payment_status == 'pending':
-        #         self._set_pending()
-        #     elif payment_status == 'authorized':
-        #         self._set_authorized()
-        #     elif payment_status == 'paid':
-        #         self._set_done()
-        #     elif payment_status in ['expired', 'canceled', 'failed']:
-        #         self._set_canceled(_("Payment status: %s", payment_status))
-        #     else:
-        #         _logger.error("Received invalid payment status: %s", payment_status)
-        #         self._set_error(_("Invalid payment status: %s", payment_status))
-        #
-        # except Exception as e:
-        #     _logger.error("Error processing Dinger notification: %s", str(e))
-        #     raise ValidationError(_("Error processing the payment notification."))

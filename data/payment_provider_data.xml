@@ -14,8 +14,7 @@
         <field
                 name="payment_method_ids"
                 eval="[(6, 0, [
-                   ref('payment_dinger.payment_method_dinger_kpay'),
-                   ref('payment_dinger.payment_method_dinger_ayapay'),
+                   payment_method_dinger_dinger
                ])]"
         />
     </record>

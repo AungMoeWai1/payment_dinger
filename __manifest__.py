@@ -2,7 +2,7 @@
 {
     "name": "Dinger",
     "version": "1.0",
-    "author": "Aung Moe Wai",
+    "author": "SME Intellect",
     "category": "Accounting/Payment Providers",
     "summary": "A payment provider.",
     "description": " ",  # Non-empty string to avoid loading the README file.
@@ -16,7 +16,7 @@
         "data/payment_provider_data.xml",
     ],
     'external_dependencies': {
-        'python': ['dinger-payment','crypto_js','pycrytodome','rsa']
+        'python': ['dinger-payment','pycryptodome','rsa']
     },
     "post_init_hook": "post_init_hook",
     "uninstall_hook": "uninstall_hook",

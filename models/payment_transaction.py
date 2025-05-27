@@ -1,17 +1,20 @@
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
+"""
+After start creating new transaction, override my operations
+"""
 import logging
-import json
 from odoo.http import request
-from odoo import _, models, api, fields
-from odoo.tools import float_round
+from odoo import _, models, api
 from odoo.exceptions import ValidationError
 from odoo.addons.payment_dinger import const
-from odoo.addons.payment_dinger.controllers.main import DingerPayController
-
 _logger = logging.getLogger(__name__)
 
 
 class PaymentTransaction(models.Model):
+    """
+    when start make transaction , start create payload information
+    send it to create url
+    and to start url redirect , put it in the rendering_values
+    """
     _inherit = 'payment.transaction'
 
     def _get_specific_rendering_values(self, transaction):
@@ -25,14 +28,15 @@ class PaymentTransaction(models.Model):
         payload = self._dinger_prepare_preference_request_payload()
 
         # Make the request to Dinger to create the payment
-        url = self.provider_id._dinger_make_request(resource_data=payload)
+        url,encrypted_payload,hash_value = self.provider_id.dinger_make_request(resource_data=payload)
 
         # Set reference to transaction (important for matching)
         self.provider_reference = payload.get("orderId")
 
         rendering_values = {
-            'api_url': url,
+            'api_url': url
         }
+        print(url)
         return rendering_values
 
     def _dinger_prepare_preference_request_payload(self):
@@ -48,8 +52,8 @@ class PaymentTransaction(models.Model):
             for line in self.sale_order_ids[0].order_line:
                 items.append({
                     'name': line.product_id.name,
-                    'amount': str(line.price_unit),
-                    'quantity': str(line.product_uom_qty),
+                    'amount': line.price_unit,
+                    'quantity': line.product_uom_qty,
                 })
 
         return {

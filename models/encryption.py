@@ -1,63 +1,45 @@
-from Crypto.Cipher import PKCS1_v1_5
-from Crypto.PublicKey import RSA
+import json
 import base64
-import hmac
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_v1_5
+import requests
 import hashlib
+import hmac
+from urllib.parse import urlencode, quote_plus
 
 
-import base64
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_v1_5
-from Crypto import Random
+class EncryptRSA:
 
+    def __init__(self, data: str):
+        # Get this from Dinger documentation
+        self.public_key = RSA.import_key("-----BEGIN PUBLIC KEY-----\n"
+                                    +"MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCFD4IL1suUt/TsJu6zScnvsEdLPuACgBdjX82QQf8NQlFHu2v/84dztaJEyljv3TGPuEgUftpC9OEOuEG29z7z1uOw7c9T/luRhgRrkH7AwOj4U1+eK3T1R+8LVYATtPCkqAAiomkTU+aC5Y2vfMInZMgjX0DdKMctUur8tQtvkwIDAQAB"
+                                    + "\n-----END PUBLIC KEY-----"
+                                    )
+        self.message = data.encode()
 
+    def encrypt(self):
+        try:
+            cipher_rsa = PKCS1_v1_5.new(self.public_key)
+            res = []
+            for i in range(0, len(self.message), 64):
+                enc_tmp = cipher_rsa.encrypt(self.message[i: i + 64])
+                res.append(enc_tmp)
+                cipher_text = b"".join(res)
+        except Exception as e:
+            print(e)
+        else:
+            return base64.b64encode(cipher_text).decode()
 
-
-def load_public_key(base64_key_str):
-    key_der = base64.b64decode(base64_key_str)
-    rsa_key = RSA.importKey(key_der)
-    return rsa_key
-
-
-def rsa_encrypt_chunked(data, base64_public_key):
-    public_key = load_public_key(base64_public_key)
-    cipher = PKCS1_v1_5.new(public_key)
-
-    data_bytes = b"{data}"
-    max_chunk_size = 64  # 64 bytes per chunk as in the Java code
-
-    encrypted = b''
-    for i in range(0, len(data_bytes), max_chunk_size):
-        chunk = data_bytes[i:i + max_chunk_size]
-        encrypted += cipher.encrypt(chunk)
-
-    encrypted_b64 = base64.b64encode(encrypted).decode('utf-8')
-    return encrypted_b64
-
-
-def generate_hash_value(encrypted_payload: str, secret_key: str) -> str:
-    return hmac.new(
-        key=secret_key.encode(),
-        msg=encrypted_payload.encode(),
-        digestmod=hashlib.sha256
-    ).hexdigest()
-
-
-def decrypt(encrypted_base64_str, private_key_pem):
-    encrypted_data = base64.b64decode(encrypted_base64_str)
-    private_key = RSA.import_key(private_key_pem)
-    cipher_rsa = PKCS1_v1_5.new(private_key)
-
-    sentinel = Random.get_random_bytes(32)
-    chunk_size = 128  # 1024 bits = 128 bytes per encrypted block
-
-    decrypted_chunks = []
-    for i in range(0, len(encrypted_data), chunk_size):
-        chunk = encrypted_data[i:i + chunk_size]
-        decrypted_chunk = cipher_rsa.decrypt(chunk, sentinel)
-        decrypted_chunks.append(decrypted_chunk)
-
-    decrypted_data = b"".join(decrypted_chunks)
-    return decrypted_data.decode('utf-8')
-
-
+    @staticmethod
+    def pay(baseurl, data, secretkey):
+        value = json.dumps(data)
+        # get from checkout-form page
+        secretkey = "1be2e692d3a1d80b8e9e3e665028b6f7"
+        # encrypt
+        encryptedPayload = EncryptRSA(value).encrypt()
+        # calculate hash
+        hashValue = hmac.new(secretkey.encode("utf-8"), value.encode("utf-8"), hashlib.sha256).hexdigest()
+        # send GET request to this final url
+        url = f"https://form.dinger.asia?{urlencode({'payload': encryptedPayload, 'hashValue': hashValue}, quote_via=quote_plus)}"
+        return url,encryptedPayload,hashValue

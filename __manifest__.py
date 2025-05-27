@@ -2,7 +2,7 @@
 {
     "name": "Dinger",
     "version": "1.0",
-    "author": "Aung Moe Wai",
+    "author": "SME Intellect",
     "category": "Accounting/Payment Providers",
     "summary": "A payment provider.",
     "description": " ",  # Non-empty string to avoid loading the README file.

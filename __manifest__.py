@@ -6,7 +6,7 @@
     "category": "Accounting/Payment Providers",
     "summary": "A payment provider.",
     "description": " ",  # Non-empty string to avoid loading the README file.
-    "depends": ["payment"],
+    "depends": ["payment", "website_sale", "sale_management"],
     "data": [
         "views/payment_dinger_templates.xml",
         "views/payment_provider_views.xml",
@@ -16,7 +16,7 @@
         "data/payment_provider_data.xml",
     ],
     'external_dependencies': {
-        'python': ['dinger-payment','pycryptodome','rsa']
+        'python': ['pycryptodome']
     },
     "post_init_hook": "post_init_hook",
     "uninstall_hook": "uninstall_hook",

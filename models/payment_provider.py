@@ -5,10 +5,13 @@ Module to provide payment method operation
 -default method code sending to the system
 -base url changing based on testing or production
 """
+
 import json
-from urllib.parse import urlencode, quote_plus
+from urllib.parse import quote_plus, urlencode
+
 from odoo import fields, models
 from odoo.addons.payment_dinger import const
+
 from .encryption import EncryptRSA
 
 
@@ -16,6 +19,7 @@ class PaymentProvider(models.Model):
     """
     Implement require credentials to use in payment
     """
+
     _inherit = "payment.provider"
 
     # === FIELDS ===#
@@ -73,6 +77,38 @@ class PaymentProvider(models.Model):
 
     # ===  BUSINESS METHODS   ===#
 
+    def _prepare_dinger_payload(self, resource_data):
+        """
+        Prepare the payload for Dinger payment request.
+        This method is used to collect data from the resource_data and format it
+        according to Dinger's requirements.
+        """
+        return {
+            "items": json.dumps(resource_data.get("items", [])),
+            "customerName": resource_data.get("customerName"),
+            "totalAmount": resource_data.get("totalAmount"),
+            "merchantOrderId": resource_data.get("orderId"),
+            "clientId": self.client_id,
+            "publicKey": self.public_key,
+            "merchantKey": self.merchant_key,
+            "projectName": self.project_name or "dinger-prebuilt-smei",
+            "merchantName": self.merchant_name,
+            "email": resource_data.get("email"),
+            "billCity": resource_data.get("billCity", "city"),
+            "billAddress": resource_data.get("billAddress", "address"),
+            "state": resource_data.get("state", "state"),
+            "country": resource_data.get("country", "MM"),
+            "postalCode": resource_data.get("postalCode", "15015"),
+        }
+
+    def _get_dinger_payload(self, resource_data):
+        """
+        Get the payload for Dinger payment request.
+        This method is used to collect data from the resource_data and format it
+        according to Dinger's requirements.
+        """
+        return self._prepare_dinger_payload(resource_data)
+
     # To request for payment by send payload
     def dinger_make_request(self, resource_data):
         """
@@ -82,68 +118,21 @@ class PaymentProvider(models.Model):
         hash value is get from hmac sha256 by encrypting using secret key and data
         return url to browse
         """
-
-        # items_list = resource_data.get("items", [])
-        # data = {
-        #     # items must be string
-        #     "items": json.dumps(items_list),
-        #     "customerName": resource_data.get("customerName"),
-        #     "totalAmount": resource_data.get("totalAmount"),
-        #     "merchantOrderId": resource_data.get("orderId"),
-        #     # get from checkout-form page
-        #     "clientId": self.client_id,
-        #     # get from data-dashboard page
-        #     "publicKey": self.public_key,
-        #     # get from data-dashboard page
-        #     "merchantKey": self.merchant_key,
-        #     # your project name
-        #     "projectName": self.project_name,
-        #     # your account username
-        #     "merchantName": self.merchant_name,
-        #     "email": "misterjames.thiha@gmail.com",
-        #     "billCity": "city",
-        #     "billAddress": "address",
-        #     "state": "state",
-        #     "country": "MM",
-        #     "postalCode": "15015",
-        # }
-
-        items = [
-            {"name": "DiorAct Sandal", "amount": 250, "quantity": 1},
-            {"name": "Aime Leon Dore", "amount": 250, "quantity": 1},
-        ]
-        orderid = "123456"
-        data = {
-            # items must be string
-            "items": json.dumps(items),
-            "customerName": "James",
-            "totalAmount": 500,
-            "merchantOrderId": orderid,
-            # get from checkout-form page
-            "clientId": "6ecf9792-f093-369e-bb25-ec5c2702c5f4",
-            # get from data-dashboard page
-            "publicKey": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCucqVPf8TB71ZAHRxcJE9Ac2AknmLwJmoqZ5FxB7+vfe6Gsg7dFfegMCrl29P3vLp58rpzLl436RHr8/RSymsiJWI8ARpc26oPWAXgmx6P7LtdyYw7R8GrHhq8o8jTGnNA0oHbptlbLIxSlLHmLXUlSUj7T+PlQd4HQ3E4jANPBQIDAQAB",
-            # get from data-dashboard page
-            "merchantKey": "mhgsnvm.89_wMpuTVA9yecHyUr4aMibvbIU",
-            # your project name
-            "projectName": "prebuilt-test-2",
-            # your account username
-            "merchantName": "Jamesssy",
-            "email": "misterjames.thiha@gmail.com",
-            "billCity": "city",
-            "billAddress": "address",
-            "state": "state",
-            "country": "MM",
-            "postalCode": "15015",
-        }
-        # value = json.dumps(data)
-        # get from checkout-form page
-        secretkey = "1be2e692d3a1d80b8e9e3e665028b6f7"
-
-        baseurl = self.dinger_get_api_url()
-        url,encrypted_payload,hash_value=EncryptRSA.pay(baseurl,data,secretkey)
-        print(url)
-        return url,encrypted_payload,hash_value
+        self.ensure_one()
+        if not self.public_key or not self.merchant_key or not self.project_name:
+            raise ValueError("Public Key, Merchant Key, and Project Name are required.")
+        if not self.secret_key:
+            raise ValueError("Secret Key is required for encryption.")
+        # Prepare the payload data
+        if not resource_data:
+            raise ValueError("Resource data is required to create the payment request.")
+        if not isinstance(resource_data, dict):
+            raise ValueError("Resource data must be a dictionary.")
+        return EncryptRSA.pay(
+            baseurl=self.dinger_get_api_url(),
+            data=self._get_dinger_payload(resource_data),
+            secretkey=self.secret_key,
+        )
 
     def _get_default_payment_method_codes(self):
         default_codes = super()._get_default_payment_method_codes()
@@ -160,6 +149,8 @@ class PaymentProvider(models.Model):
         :rtype: str
         """
         self.ensure_one()
-        staging="https://form.dinger.asia"
-        production="https://prebuilt.dinger.asia"
-        return staging if self.state == "enabled" else production
+        return (
+            "https://form.dinger.asia"
+            if self.state == "enabled"
+            else "https://prebuilt.dinger.asia"
+        )

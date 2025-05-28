@@ -3,11 +3,14 @@ After start creating new transaction, override my operations
 """
 
 import logging
+import requests
 
 from odoo import _, api, models
 from odoo.addons.payment_dinger import const
 from odoo.exceptions import ValidationError
 from odoo.http import request
+from passlib.utils.handlers import parse_int
+from odoo.addons.payment import utils as payment_utils
 
 _logger = logging.getLogger(__name__)
 
@@ -18,7 +21,6 @@ class PaymentTransaction(models.Model):
     send it to create url
     and to start url redirect , put it in the rendering_values
     """
-
     _inherit = "payment.transaction"
 
     def _get_specific_rendering_values(self, transaction):
@@ -46,6 +48,19 @@ class PaymentTransaction(models.Model):
         }
         return rendering_values
 
+    def get_country_code(self,country):
+        url="https://staging.dinger.asia/payment-gateway-uat/api/countryCodeListEnquiry"
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            print("Dinger Country Code getting success...")
+            country_list=data.get("response",[])
+            for entry in country_list:
+                countries = entry.get("country", "").lower()
+                if  country.lower() in countries:
+                    return entry.get("code")
+        return None
+
     def _dinger_prepare_preference_request_payload(self):
         """Create the payload for the preference request based on the transaction values.
 
@@ -54,22 +69,32 @@ class PaymentTransaction(models.Model):
         """
         user_lang = self.env.context.get("lang")
 
+        sale_order=self.sale_order_ids[0]
+        country_code = self.get_country_code(sale_order.partner_id.country_id.name)
+
         items = []
         if self.sale_order_ids:
-            for line in self.sale_order_ids[0].order_line:
+            for line in sale_order.order_line:
                 items.append(
                     {
                         "name": line.product_id.name,
                         "amount": line.price_unit,
-                        "quantity": line.product_uom_qty,
+                        "quantity": int(line.product_uom_qty),
                     }
                 )
+            items.append(
+                {
+                    "name": "Tax",
+                    "amount":sale_order.amount_tax,
+                    "quantity":1,
+                }
+            )
 
         return {
             "clientId": self.partner_id.id,
             "providerName": self.payment_method_id.name,
-            "totalAmount": self.amount,
-            "orderId": self.sale_order_ids.name,
+            "totalAmount": sale_order.amount_total,
+            "orderId": sale_order.name,
             "email": self.partner_id.email,
             "state": self.partner_id.state_id.name,
             "customerPhone": self.partner_id.phone,
@@ -80,7 +105,10 @@ class PaymentTransaction(models.Model):
             "items": items,
             "description": self.reference,
             "locale": user_lang,
+            "country":country_code,
+            "currency":self.currency_id.name,
         }
+
 
     def _get_tx_from_notification_data(self, provider_code, notification_data):
         tx = super()._get_tx_from_notification_data(provider_code, notification_data)

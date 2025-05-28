@@ -7,11 +7,8 @@ Module to provide payment method operation
 """
 
 import json
-from urllib.parse import quote_plus, urlencode
-
 from odoo import fields, models
 from odoo.addons.payment_dinger import const
-
 from .encryption import EncryptRSA
 
 
@@ -86,7 +83,7 @@ class PaymentProvider(models.Model):
         return {
             "items": json.dumps(resource_data.get("items", [])),
             "customerName": resource_data.get("customerName"),
-            "totalAmount": resource_data.get("totalAmount"),
+            "totalAmount": float(resource_data.get("totalAmount")),
             "merchantOrderId": resource_data.get("orderId"),
             "clientId": self.client_id,
             "publicKey": self.public_key,
@@ -98,6 +95,7 @@ class PaymentProvider(models.Model):
             "billAddress": resource_data.get("billAddress", "address"),
             "state": resource_data.get("state", "state"),
             "country": resource_data.get("country", "MM"),
+            "currency":resource_data.get("currency"),
             "postalCode": resource_data.get("postalCode", "15015"),
         }
 

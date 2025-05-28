@@ -39,6 +39,13 @@ class DingerPayController(Controller):
         ref = result.get('merchantOrderId')
         payment_id = result.get('transactionId')
         status = result.get('transactionStatus')
+        total_amount=result.get('totalAmount')
+        created_at=result.get('createdAt')
+        provider_name=result.get('providerName')
+        method_name=result.get('methodName')
+        customer_name=result.get('customerName')
+
+
 
         #Notify the system to make payment status is set_done
         tx = request.env['payment.transaction'].sudo()._get_tx_from_notification_data('dinger', {

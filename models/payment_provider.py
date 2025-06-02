@@ -65,6 +65,8 @@ class PaymentProvider(models.Model):
         groups="base.group_system",
     )
 
+    commission_tax=fields.Float(string="Commission Percentage",help="Define average percentage for all payment method",required_if_provider="dinger",groups="base.group_system")
+
     description = fields.Text(
         string="Description",
         default="Payment made by an Odoo website.",

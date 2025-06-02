@@ -45,6 +45,12 @@
                     />
                 </group>
 
+                <xpath expr="//notebook/page[@name='configuration']/group[@name='provider_config']/group[@name='payment_form']/field[@name='description']" position="after">
+                    <field name="commission_tax"
+                           required="code == 'dinger' and state != 'disabled'"
+                           invisible="code!='dinger'"/>
+                </xpath>
+
             </field>
         </record>
     </data>

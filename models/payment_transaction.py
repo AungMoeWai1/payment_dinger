@@ -69,7 +69,12 @@ class PaymentTransaction(models.Model):
         """
         user_lang = self.env.context.get("lang")
 
+        #This should be defined 2% for all payment method to make average fix
+        tax_percentage=self.provider_id.commission_tax
+        # tax_percentage=2
+
         sale_order=self.sale_order_ids[0]
+        commission_tax = (sale_order.amount_total * 2) / 100
         country_code = self.get_country_code(sale_order.partner_id.country_id.name)
 
         items = []
@@ -89,11 +94,18 @@ class PaymentTransaction(models.Model):
                     "quantity":1,
                 }
             )
+            items.append(
+                {
+                    "name": "Commission Tax",
+                    "amount":commission_tax,
+                    "quantity":1,
+                }
+            )
 
         return {
             "clientId": self.partner_id.id,
             "providerName": self.payment_method_id.name,
-            "totalAmount": sale_order.amount_total,
+            "totalAmount": sale_order.amount_total+commission_tax,
             "orderId": sale_order.name,
             "email": self.partner_id.email,
             "state": self.partner_id.state_id.name,

@@ -8,8 +8,14 @@
     "description": " ",  # Non-empty string to avoid loading the README file.
     "depends": ["payment", "website_sale", "sale_management"],
     "data": [
+
+        #View
         "views/payment_dinger_templates.xml",
         "views/payment_provider_views.xml",
+        "views/payment_transaction_status_views.xml",
+
+        #Security
+        "security/ir.model.access.csv",
 
         # Data
         "data/payment_method_data.xml",

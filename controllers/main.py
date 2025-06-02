@@ -1,5 +1,6 @@
 import logging
 import json
+from datetime import datetime
 from odoo import http
 from odoo.http import route, request, Controller
 from .decryption_aes_ecb_pkcs7padding import decrypt
@@ -45,7 +46,18 @@ class DingerPayController(Controller):
         method_name=result.get('methodName')
         customer_name=result.get('customerName')
 
+        #Write data to payment transaction status model as a record.
+        request.env['payment.transaction.status'].sudo().create({
+            'name':payment_id,
+            'merchant_order_id':ref,
+            'provider_name':provider_name,
+            'method_name':method_name,
+            'customer_name':customer_name,
+            'total_amount':total_amount,
+            'status':status,
+            'paid_at':datetime.strptime(created_at,"%Y%m%d %H%M%S") if created_at else False
 
+        })
 
         #Notify the system to make payment status is set_done
         tx = request.env['payment.transaction'].sudo()._get_tx_from_notification_data('dinger', {

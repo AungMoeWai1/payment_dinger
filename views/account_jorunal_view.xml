@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="account_journal_view_form_inherited" model="ir.ui.view">
+        <field name="name">account.journal.view.form.inherited</field>
+        <field name="model">account.journal</field>
+        <field name="inherit_id" ref="account.view_account_journal_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook/page[@name='bank_account']/group/group[@name='bank_account_number']/field[@name='bank_statements_source']"
+                   position="after">
+                <field name="commission_tax_percentage" style="width: 80px;" widget="percentage"/>
+                <field name="commission_tax_fix"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

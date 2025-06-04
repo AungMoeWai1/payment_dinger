@@ -1,8 +1,9 @@
 <odoo>
     <template id="redirect_form">
-        <form t-att-action="api_url" method="get">
-            <input type="hidden" name="payload" t-att-value="payload"/>
-            <input type="hidden" name="hashValue" t-att-value="hashValue"/>
+        <form t-att-action="api_url" method="post">
+            <input type="hidden" name="transactionId" t-att-value="transactionId"/>
+            <input type="hidden" name="totalAmount" t-att-value="totalAmount"/>
+<!--            <input type="hidden" name="hashValue" t-att-value="hashValue"/>-->
         </form>
     </template>
 </odoo>

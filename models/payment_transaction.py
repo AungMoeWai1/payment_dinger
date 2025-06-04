@@ -12,6 +12,7 @@ from odoo.http import request
 from passlib.utils.handlers import parse_int
 from odoo.addons.payment import utils as payment_utils
 
+
 _logger = logging.getLogger(__name__)
 
 
@@ -31,22 +32,46 @@ class PaymentTransaction(models.Model):
             return res
 
         # Prepare the payload for the payment request to Dinger
-        payload = self._dinger_prepare_preference_request_payload()
+        # payload = self._dinger_prepare_preference_request_payload()
 
         # Make the request to Dinger to create the payment
-        url, encrypted_payload, hash_value = self.provider_id.dinger_make_request(
-            resource_data=payload
-        )
+        # url, encrypted_payload, hash_value = self.provider_id.dinger_make_request(
+        #     resource_data=payload
+        # )
+
+        test_data={
+            "paymentResult":"5zDOSGSI/YE7wsmX/IlBZb6iH0NpwgRuUL13RY9sEKIvo8oebHCh1FKZ0MKTkvlKPQ6Cn2qYg7UDQssBuMbkVAGWcVPK0WvvrrACrx480jdydrNUcsqX4vsaqHuRlCQa/7Qfur+W6WNKO4exvOvN25FtE8hDB7ENu37r54wUlGC21bojhq9M15/Ql5P9+w1x/+Ep13nmyptGOHfI4a4V3D57v0HQ8KqUnOy5P6E4FYOSeOVeVuCJ516RK94OIVAUB3F9jqy4NLm9jqc243pWOR9fwGJK5YplMbOuQFEZKt0=",
+            "checksum":"3e6dc224539d382f300f658a26775e75029b26ba0b885196e7ec66feb6a756ae"
+        }
+        sale_order = self.sale_order_ids[0]
+        data = {
+            "totalAmount": sale_order.amount_total,
+            "createdAt": "20210916 085233",
+            "transactionStatus": "SUCCESS",
+            "methodName": "QR",
+            "merchantOrderId": sale_order.name,
+            "transactionId": self.reference,
+            "customerName": self.partner_id.name,
+            "providerName": "KBZ Pay"
+        }
+
 
         # Set reference to transaction (important for matching)
         # self.provider_reference = payload.get("orderId")
 
-        rendering_values = {
-            "api_url": url,
-            "payload": encrypted_payload,
-            "hashValue": hash_value,
+        rendering_values={
+            "api_url":"/payment/dinger/webhook",
+            "totalAmount": sale_order.amount_total,
+            "transactionId": self.reference,
         }
         return rendering_values
+
+        # rendering_values = {
+        #     "api_url": url,
+        #     "payload": encrypted_payload,
+        #     "hashValue": hash_value,
+        # }
+        # return rendering_values
 
     def get_country_code(self,country):
         url="https://staging.dinger.asia/payment-gateway-uat/api/countryCodeListEnquiry"
@@ -69,12 +94,7 @@ class PaymentTransaction(models.Model):
         """
         user_lang = self.env.context.get("lang")
 
-        #This should be defined 2% for all payment method to make average fix
-        tax_percentage=self.provider_id.commission_tax
-        # tax_percentage=2
-
         sale_order=self.sale_order_ids[0]
-        commission_tax = (sale_order.amount_total * 2) / 100
         country_code = self.get_country_code(sale_order.partner_id.country_id.name)
 
         items = []
@@ -94,18 +114,11 @@ class PaymentTransaction(models.Model):
                     "quantity":1,
                 }
             )
-            items.append(
-                {
-                    "name": "Commission Tax",
-                    "amount":commission_tax,
-                    "quantity":1,
-                }
-            )
 
         return {
             "clientId": self.partner_id.id,
             "providerName": self.payment_method_id.name,
-            "totalAmount": sale_order.amount_total+commission_tax,
+            "totalAmount": sale_order.amount_total,
             "orderId": sale_order.name,
             "email": self.partner_id.email,
             "state": self.partner_id.state_id.name,
@@ -187,3 +200,19 @@ class PaymentTransaction(models.Model):
         else:
             _logger.error("Received invalid payment status: %s", payment_status)
             self._set_error(_("Invalid payment status: %s", payment_status))
+
+        # for tx in self:
+        #     if tx.provider_code == 'dinger' and tx.state == 'done':
+        #         # Reduce the amount by $20 ONLY for invoice generation
+        #         new_amount = max(tx.amount - 20.0, 0.0)
+        #         tx.write({'amount': new_amount})
+        #
+        #         # Also update the invoice if already created
+        #         if tx.invoice_ids:
+        #             for inv in tx.invoice_ids:
+        #                 inv.amount_total = new_amount
+        #                 inv.amount_residual = new_amount  # for consistency
+        #                 # You may need to re-compute taxes and totals
+        #                 inv._compute_amount()
+
+        # return res

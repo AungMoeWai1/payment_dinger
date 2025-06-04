@@ -13,6 +13,7 @@
         "views/payment_dinger_templates.xml",
         "views/payment_provider_views.xml",
         "views/payment_transaction_status_views.xml",
+        "views/account_jorunal_view.xml",
 
         #Security
         "security/ir.model.access.csv",

@@ -35,18 +35,6 @@ class DingerPayController(Controller):
         except (ValueError, TypeError):
             total_amount = 0.0
 
-        # Notify the system to make payment status is set_done
-        tx = request.env['payment.transaction'].sudo()._get_tx_from_notification_data('dinger', {
-            'ref': ref,
-            'payment_id': payment_id,
-            'status': status,
-        })
-
-        tx._process_notification_data({
-            'payment_id': payment_id,
-            'status': status
-        })
-
         # check_sum = post.get('checksum')
 
         # Then need to decrypt using
@@ -87,6 +75,19 @@ class DingerPayController(Controller):
         #     'status': status,
         #     'paid_at': datetime.strptime(created_at, "%Y%m%d %H%M%S") if created_at else False
         # })
+
+        # Notify the system to make payment status is set_done
+        tx = request.env['payment.transaction'].sudo()._get_tx_from_notification_data('dinger', {
+            'ref': ref,
+            'payment_id': payment_id,
+            'status': status,
+            'provider_name': provider_name,
+        })
+
+        tx._process_notification_data({
+            'payment_id': payment_id,
+            'status': status
+        })
 
         # Redirect to the payment success page
         return request.redirect('/payment/status')

@@ -1,7 +1,12 @@
-from odoo import models,fields
 
-class account_journal(models.Model):
-    _inherit = "account.journal"
+from odoo import fields, models
 
-    commission_tax_percentage=fields.Float(string="Tax of bank transaction percentage",default=0.0)
-    commission_tax_fix=fields.Float(string="Tax of bank transaction amount",default=0.0)
+
+class AccountJournal(models.Model):
+    """
+    Implement require credentials to use in journal
+    """
+    _inherit="account.journal"
+
+    commission_tax_percentage=fields.Float(default=0.0,string="Bank transaction Percentage")
+    commission_tax_fix=fields.Float(default=0.0,string="Bank transaction Amount")

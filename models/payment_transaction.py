@@ -5,7 +5,8 @@ After start creating new transaction, override my operations
 import logging
 import requests
 
-from odoo import _, api, models
+from odoo import _, api, models, fields
+from datetime import datetime
 from odoo.addons.payment_dinger import const
 from odoo.exceptions import ValidationError
 from odoo.http import request
@@ -22,6 +23,7 @@ class PaymentTransaction(models.Model):
     and to start url redirect , put it in the rendering_values
     """
     _inherit = "payment.transaction"
+    provider_name = fields.Char(string="Provider Name", store=True)
 
     def _get_specific_rendering_values(self, transaction):
         """This method is called to render the payment page and redirect to Dinger's checkout form."""
@@ -37,6 +39,18 @@ class PaymentTransaction(models.Model):
         url, encrypted_payload, hash_value = self.provider_id.dinger_make_request(
             resource_data=payload
         )
+
+        request.env['payment.transaction.status'].sudo().create({
+            'transaction_id': self.id,
+            'reference': "",
+            'merchant_order': self.sale_order_ids[0].name if self.sale_order_ids else '',
+            'provider_name': "",
+            'received_method': "",
+            'customer_name': self.partner_id.name,
+            'total': self.sale_order_ids[0].amount_total,
+            'state': "draft",
+            'paid_at': datetime.now()
+        })
 
         # Set reference to transaction (important for matching)
         # self.provider_reference = payload.get("orderId")
@@ -114,7 +128,7 @@ class PaymentTransaction(models.Model):
         tx = super()._get_tx_from_notification_data(provider_code, notification_data)
         if provider_code != "dinger" or len(tx) == 1:
             return tx
-
+        provider_name = notification_data.get("provider_name")
         # notification_data={'reference': self.reference, 'payment_details': '1234', 'simulated_state':self.state}
         tx = self.search(
             [
@@ -175,3 +189,104 @@ class PaymentTransaction(models.Model):
         else:
             _logger.error("Received invalid payment status: %s", payment_status)
             self._set_error(_("Invalid payment status: %s", payment_status))
+
+    def _create_payment(self, **extra_create_values):
+        """Create an `account.payment` record for the current transaction.
+
+        If the transaction is linked to some invoices, their reconciliation is done automatically.
+
+        Note: self.ensure_one()
+
+        :param dict extra_create_values: Optional extra create values
+        :return: The created payment
+        :rtype: recordset of `account.payment`
+        """
+        self.ensure_one()
+
+        reference = (f'{self.reference} - '
+                     f'{self.partner_id.display_name or ""} - '
+                     f'{self.provider_reference or ""}'
+                     )
+
+        # custom_journal = self.env["account.journal"].search(
+        #     [('name', '=', 'Dinger'), ('company_id', '=', self.env.company.id)], limit=1)
+
+        custom_transaction_journal = self.env["account.journal"].search(
+            [('name', '=', self.provider_name), ('company_id', '=', self.env.company.id)], limit=1)
+
+        available_methods = custom_transaction_journal.inbound_payment_method_line_ids if self.amount > 0 else custom_transaction_journal.outbound_payment_method_line_ids
+
+        total_transaction_tax = (self.amount * custom_transaction_journal.commission_tax_percentage) / 100 + custom_transaction_journal.commission_tax_fix
+
+        payment_values = {
+            'amount': self.amount - total_transaction_tax,  # A tx may have a negative amount, but a payment must >= 0
+            'payment_type': 'inbound' if self.amount > 0 else 'outbound',
+            'currency_id': self.currency_id.id,
+            'partner_id': self.partner_id.commercial_partner_id.id,
+            'partner_type': 'customer',
+            'journal_id': custom_transaction_journal.id,
+            'company_id': self.env.company.id,
+            'payment_method_line_id': available_methods[0].id,
+            'payment_token_id': self.token_id.id,
+            'payment_transaction_id': self.id,
+            'memo': reference,
+            'write_off_line_vals': [{
+                'name': self.provider_name + " transaction charge",
+                'account_id': custom_transaction_journal.suspense_account_id.id,
+                'debit': total_transaction_tax,
+                'credit': 0.0,
+                'amount_currency': total_transaction_tax,
+                'balance': total_transaction_tax,
+                'partner_id': self.partner_id.commercial_partner_id.id,
+            }
+            ],
+            'invoice_ids': self.invoice_ids,
+            **extra_create_values,
+        }
+
+        for invoice in self.invoice_ids:
+            if invoice.state != 'posted':
+                continue
+            next_payment_values = invoice._get_invoice_next_payment_values()
+            if next_payment_values['installment_state'] == 'epd' and self.amount == next_payment_values['amount_due']:
+                aml = next_payment_values['epd_line']
+                epd_aml_values_list = [({
+                    'aml': aml,
+                    'amount_currency': -aml.amount_residual_currency,
+                    'balance': -aml.balance,
+                })]
+                open_balance = next_payment_values['epd_discount_amount']
+                early_payment_values = self.env[
+                    'account.move']._get_invoice_counterpart_amls_for_early_payment_discount(epd_aml_values_list,
+                                                                                             open_balance)
+                for aml_values_list in early_payment_values.values():
+                    if (aml_values_list):
+                        aml_vl = aml_values_list[0]
+                        aml_vl['partner_id'] = invoice.partner_id.id
+                        payment_values['write_off_line_vals'] += [aml_vl]
+                break
+
+        payment_term_lines = self.invoice_ids.line_ids.filtered(lambda line: line.display_type == 'payment_term')
+        if payment_term_lines:
+            payment_values['destination_account_id'] = payment_term_lines[0].account_id.id
+
+        payment = self.env['account.payment'].create(payment_values)
+        payment.action_post()
+
+        # Track the payment to make a one2one.
+        self.payment_id = payment
+
+        # Reconcile the payment with the source transaction's invoices in case of a partial capture.
+        if self.operation == self.source_transaction_id.operation:
+            invoices = self.source_transaction_id.invoice_ids
+        else:
+            invoices = self.invoice_ids
+        if invoices:
+            invoices.filtered(lambda inv: inv.state == 'draft').action_post()
+
+            (payment.move_id.line_ids + invoices.line_ids).filtered(
+                lambda line: line.account_id == payment.destination_account_id
+                             and not line.reconciled
+            ).reconcile()
+
+        return payment

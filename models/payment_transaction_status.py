@@ -1,15 +1,28 @@
 from odoo import fields,models
 
+PAYMENT_TRANSACTION_STATUS=[
+    ("draft","DRAFT"),
+    ("success","SUCCESS"),
+    ("declined","DECLINED"),
+    ("timeout","TIMEOUT"),
+    ("cancelled","CANCELLED"),
+    ("system_error","SYSTEM_ERROR"),
+    ("error","ERROR")
+]
 class paymentTransactionStatus(models.Model):
     _name='payment.transaction.status'
     _description="To store the status information from the dinger payment call back"
 
-    name=fields.Char(string="Transaction Id")
-    merchant_order_id=fields.Char(string="Merchant Order Id")
+    transaction_id=fields.Many2one("payment.transaction",string="Transaction ID")
+
+    #That is transaction id from dinger
+    reference=fields.Char(string="Reference")
+    merchant_order=fields.Char(string="Merchant OrderID")
     provider_name=fields.Char(string="Provider Name")
-    method_name=fields.Char(string="Method Name")
-    customer_name=fields.Char(string="Customer Name")
-    total_amount=fields.Monetary(string="Total Amount")
-    status=fields.Char(string="Status")
-    paid_at=fields.Time(string="Paid At")
+    received_method=fields.Char(string="Received By")
+    customer_name=fields.Char(string="Customer")
+    #Here need to change float to monetary : fact- return value are float amount
+    total=fields.Float(string="Total")
+    state=fields.Selection(PAYMENT_TRANSACTION_STATUS,string="Status",default="draft")
+    paid_at=fields.Datetime(string="Paid At")
 

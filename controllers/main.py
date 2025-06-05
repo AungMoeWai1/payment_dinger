@@ -1,5 +1,6 @@
 import logging
 import json
+from datetime import datetime
 from odoo import http
 from odoo.http import route, request, Controller
 from .decryption_aes_ecb_pkcs7padding import decrypt
@@ -40,10 +41,38 @@ class DingerPayController(Controller):
         payment_id = result.get('transactionId')
         status = result.get('transactionStatus')
         total_amount=result.get('totalAmount')
-        created_at=result.get('createdAt')
+        # created_at=result.get('createdAt')
         provider_name=result.get('providerName')
         method_name=result.get('methodName')
         customer_name=result.get('customerName')
+
+        try:
+            total_amount = float(total_amount)
+        except (ValueError, TypeError):
+            total_amount = 0.0
+
+        #Check the transaction_id is check in the mode to make update or write
+        transaction = request.env['payment.transaction.status'].sudo().search([
+            ('transaction_id', '=', ref)
+        ], limit=1)
+
+        # Write data to payment transaction status model as a record.
+        values = {
+            'reference': payment_id,
+            'provider_name': provider_name,
+            'received_method': method_name,
+            'customer_name':customer_name,
+            'total': total_amount,
+            'state': status.lower(),
+            'paid_at': datetime.now()
+        }
+
+        if transaction:
+            # Update the existing record
+            transaction.write(values)
+        else:
+            # Create a new record
+            request.env['payment.transaction.status'].sudo().create(values)
 
 
 
@@ -51,7 +80,8 @@ class DingerPayController(Controller):
         tx = request.env['payment.transaction'].sudo()._get_tx_from_notification_data('dinger', {
             'ref': ref,
             'payment_id': payment_id,
-            'status': status
+            'status': status,
+            'provider_name':provider_name,
         })
 
         tx._process_notification_data({

@@ -3,7 +3,8 @@ After start creating new transaction, override my operations
 """
 
 import logging
-from dataclasses import field
+from datetime import datetime
+
 
 import requests
 
@@ -26,6 +27,7 @@ class PaymentTransaction(models.Model):
     _inherit = "payment.transaction"
     provider_name=fields.Char(string="Provider Name",store=True)
 
+
     def _get_specific_rendering_values(self, transaction):
         """This method is called to render the payment page and redirect to Dinger's checkout form."""
         res = super()._get_specific_rendering_values(transaction)
@@ -40,6 +42,17 @@ class PaymentTransaction(models.Model):
         # url, encrypted_payload, hash_value = self.provider_id.dinger_make_request(
         #     resource_data=payload
         # )
+        request.env['payment.transaction.status'].sudo().create({
+            'transaction_id':self.id,
+            'reference':"",
+            'merchant_order': self.sale_order_ids[0].name if self.sale_order_ids else '',
+            'provider_name': "",
+            'received_method': "",
+            'customer_name': self.partner_id.name,
+            'total': self.sale_order_ids[0].amount_total,
+            'state': "draft",
+            'paid_at': datetime.now()
+        })
 
         test_data = {
             "paymentResult": "5zDOSGSI/YE7wsmX/IlBZb6iH0NpwgRuUL13RY9sEKIvo8oebHCh1FKZ0MKTkvlKPQ6Cn2qYg7UDQssBuMbkVAGWcVPK0WvvrrACrx480jdydrNUcsqX4vsaqHuRlCQa/7Qfur+W6WNKO4exvOvN25FtE8hDB7ENu37r54wUlGC21bojhq9M15/Ql5P9+w1x/+Ep13nmyptGOHfI4a4V3D57v0HQ8KqUnOy5P6E4FYOSeOVeVuCJ516RK94OIVAUB3F9jqy4NLm9jqc243pWOR9fwGJK5YplMbOuQFEZKt0=",

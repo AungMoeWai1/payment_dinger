@@ -15,9 +15,10 @@ class paymentTransactionStatus(models.Model):
     _name='payment.transaction.status'
     _description="To store the status information from the dinger payment call back"
 
-    #Need to add payment.transaction with many2one
-    transaction_id=fields.Many2one("payment.transaction",string="Payment ID")
-    reference=fields.Char(string="Transaction ID")
+    transaction_id=fields.Many2one("payment.transaction",string="Transaction ID")
+
+    #That is transaction id from dinger
+    reference=fields.Char(string="Reference")
     merchant_order=fields.Char(string="Merchant OrderID")
     provider_name=fields.Char(string="Provider Name")
     received_method=fields.Char(string="Received By")

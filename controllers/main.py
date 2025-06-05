@@ -26,9 +26,12 @@ class DingerPayController(Controller):
         payment_id = "0586"
         ref = post.get('transactionId')
         total_amount = post.get('totalAmount')
+        transactionId ="TRX312720215216085254"
         provider_name = "Kpay"
         method_name = "QR"
         status = "SUCCESS"
+        customer_name="Mg Mg"
+        created_at="20250606 010203"
 
         try:
             total_amount = float(total_amount)
@@ -64,17 +67,27 @@ class DingerPayController(Controller):
         # Change to lower case and remove space or tab
         journal_name = provider_name.strip().replace(" ", "").lower()
 
+        transaction = request.env['payment.transaction.status'].sudo().search([
+            ('transaction_id', '=', ref)
+        ], limit=1)
+
+
         # Write data to payment transaction status model as a record.
-        # request.env['payment.transaction.status'].sudo().create({
-        #     'name': payment_id,
-        #     'merchant_order_id': ref,
-        #     'provider_name': provider_name,
-        #     'method_name': method_name,
-        #     'customer_name': customer_name,
-        #     'total_amount': total_amount,
-        #     'status': status,
-        #     'paid_at': datetime.strptime(created_at, "%Y%m%d %H%M%S") if created_at else False
-        # })
+        values = {
+            'reference': transactionId,
+            'provider_name': provider_name,
+            'received_method': method_name,
+            'total': total_amount,
+            'state': "success",
+            'paid_at': datetime.now()
+        }
+
+        if transaction:
+            # Update the existing record
+            transaction.write(values)
+        else:
+            # Create a new record
+            request.env['payment.transaction.status'].sudo().create(values)
 
         # Notify the system to make payment status is set_done
         tx = request.env['payment.transaction'].sudo()._get_tx_from_notification_data('dinger', {

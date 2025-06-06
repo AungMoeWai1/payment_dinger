@@ -27,7 +27,7 @@ class DingerPayController(Controller):
         ref = post.get('transactionId')
         total_amount = post.get('totalAmount')
         transactionId ="TRX312720215216085254"
-        provider_name = "Kpay"
+        provider_name = "KBZ Pay"
         method_name = "QR"
         status = "SUCCESS"
         customer_name="Mg Mg"

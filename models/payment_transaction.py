@@ -3,19 +3,38 @@ After start creating new transaction, override my operations
 """
 
 import logging
-from datetime import datetime
-
-
 import requests
-
 from odoo import _, api, models,fields
-from odoo.addons.payment_dinger import const
 from odoo.exceptions import ValidationError
 from odoo.http import request
 from passlib.utils.handlers import parse_int
 from odoo.addons.payment import utils as payment_utils
+from datetime import datetime
 
 _logger = logging.getLogger(__name__)
+
+DINGER_PROVIDER_NAME_TO_JOURNAL_CODE = {
+    'AYA Pay': 'aya_pay',
+    'CB Pay': 'cb_pay',
+    'Citizens Pay': 'citizens_pay',
+    'JCB': 'jcb',
+    'KBZ Mobile Banking': 'kbz_mobile_banking',
+    'KBZ Pay': 'k_pay',  # <-- Dinger returns this
+    'MAB Mobile Banking': 'mab_mobile_banking',
+    'Master': 'master',
+    'M-Pite san': 'm_pite_san',
+    'MPT Pay': 'mpt_pay',
+    'MPU': 'mpu',
+    'Mytel Pay': 'mytel_pay',
+    'OK Dollar': 'ok_dollar',
+    'One Pay': 'onepay',
+    'Sai Sai Pay': 'sai_sai_pay',
+    'True Money': 'true_money',
+    'UAB Pay': 'uab_pay',
+    'Visa': 'visa',
+    'Wave Pay': 'wave_pay',
+}
+
 
 
 class PaymentTransaction(models.Model):
@@ -180,9 +199,7 @@ class PaymentTransaction(models.Model):
         :return: The error message.
         :rtype: str
         """
-        return "Dinger: " + const.ERROR_MESSAGE_MAPPING.get(
-            status_detail, const.ERROR_MESSAGE_MAPPING["cc_rejected_other_reason"]
-        )
+        return "Dinger: " + status_detail
 
     def _process_notification_data(self, notification_data):
         """Override of payment to process the transaction based on Dinger data.
@@ -234,11 +251,10 @@ class PaymentTransaction(models.Model):
                      f'{self.provider_reference or ""}'
                      )
 
-        # custom_journal = self.env["account.journal"].search(
-        #     [('name', '=', 'Dinger'), ('company_id', '=', self.env.company.id)], limit=1)
+        journal_code = DINGER_PROVIDER_NAME_TO_JOURNAL_CODE.get(self.provider_name)
 
         custom_transaction_journal = self.env["account.journal"].search(
-            [('name', '=', self.provider_name), ('company_id', '=', self.env.company.id)], limit=1)
+            [('journal_code', '=', journal_code), ('company_id', '=', self.env.company.id)], limit=1)
 
         available_methods = custom_transaction_journal.inbound_payment_method_line_ids if self.amount > 0 else custom_transaction_journal.outbound_payment_method_line_ids
 

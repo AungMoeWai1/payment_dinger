@@ -8,7 +8,6 @@ Module to provide payment method operation
 
 import json
 from odoo import fields, models
-from odoo.addons.payment_dinger import const
 from .encryption import EncryptRSA
 
 
@@ -136,7 +135,7 @@ class PaymentProvider(models.Model):
         default_codes = super()._get_default_payment_method_codes()
         if self.code != "dinger":
             return default_codes
-        return const.DEFAULT_PAYMENT_METHOD_CODES
+        return "dinger"
 
     def dinger_get_api_url(self):
         """Return the API URL according to the state.

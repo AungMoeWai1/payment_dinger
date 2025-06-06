@@ -9,6 +9,7 @@
                    position="after">
                 <field name="commission_tax_percentage" style="width: 80px;" widget="percentage"/>
                 <field name="commission_tax_fix"/>
+                <field name="journal_code"/>
             </xpath>
         </field>
     </record>

@@ -212,7 +212,7 @@ class PaymentTransaction(models.Model):
         #     [('name', '=', 'Dinger'), ('company_id', '=', self.env.company.id)], limit=1)
 
         custom_transaction_journal = self.env["account.journal"].search(
-            [('name', '=', self.provider_name), ('company_id', '=', self.env.company.id)], limit=1)
+            [('journal_code', '=', self.provider_name), ('company_id', '=', self.env.company.id)], limit=1)
 
         available_methods = custom_transaction_journal.inbound_payment_method_line_ids if self.amount > 0 else custom_transaction_journal.outbound_payment_method_line_ids
 

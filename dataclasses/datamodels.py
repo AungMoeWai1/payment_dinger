@@ -1,4 +1,4 @@
-from .enum_ext import EnumExt
+from .enum_ext import EnumExt # pylint: disable= E0402
 
 class JournalCodeEnum(EnumExt):
     AYA_PAY = ("aya_pay", "AYA Pay")

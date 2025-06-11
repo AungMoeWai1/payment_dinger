@@ -1,6 +1,6 @@
 # Developed by Info"Lib. See LICENSE file for full copyright and licensing details.
 {
-    "name": "Dinger",
+    "name": "payment_dinger",
     "version": "1.0",
     "author": "SME Intellect",
     "category": "Accounting/Payment Providers",

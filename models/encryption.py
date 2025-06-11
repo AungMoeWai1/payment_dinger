@@ -1,10 +1,45 @@
+# -*- coding: utf-8 -*-
+# pylint: disable=broad-except
+"""Dinger RSA Encryption and Decryption Class.
+This class provides methods to encrypt and decrypt data using RSA,
+generate RSA keys, and create HMAC-SHA256 hashes for secure communication
+with the Dinger payment provider.
+Attributes:
+    public_key (str): The RSA public key used for encryption.
+    encoded_data (bytes): The data to be encrypted, encoded as bytes.
+Methods:
+    encrypt(public_key=None): Encrypts the encoded data using the provided public key.
+    generate_rsa_key(): Generates a new RSA key pair.
+    generate_hash_value(secret_key): Generates a HMAC-SHA256 hash of the encoded data using the secret key.
+    decrypt(encrypted_payload, private_key): Decrypts the given base64 encoded payload using the provided private key.
+    pay(baseurl, data, secretkey): Prepares and returns the URL for payment request with encrypted payload and hash value.
+
+Raises:
+    ValueError: If the private key is not provided for decryption or if the public key is invalid.
+    ValueError: If the secret key is not provided for hash generation.
+Usage:
+    encryptor = EncryptRSA(**data)
+    encrypted_payload = encryptor.encrypt()
+    hash_value = encryptor.generate_hash_value(secret_key)
+    url, payload, hash_value = EncryptRSA.pay(baseurl, data, secretkey)
+    decrypted_data = encryptor.decrypt(encrypted_payload, private_key)
+Args:
+    public_key (str): The RSA public key used for encryption.
+    data (dict): The data to be encrypted, provided as a dictionary.
+    secret_key (str): The secret key used for generating HMAC-SHA256 hashes.
+    private_key (str): The RSA private key used for decryption.
+
+Returns:
+    str: The encrypted payload as a base64 encoded string.
+    str: The generated hash value as a hexadecimal string.
+    str: The decrypted data as a UTF-8 encoded string.
+"""
 import base64
 import hashlib
 import hmac
 import json
 from urllib.parse import quote_plus, urlencode
 
-import requests
 from Crypto import Random
 from Crypto.Cipher import PKCS1_v1_5
 from Crypto.PublicKey import RSA
@@ -14,12 +49,14 @@ CHUNK_SIZE = 128
 
 
 class EncryptRSA:
-
+    """Class to handle RSA encryption and decryption for Dinger payment provider."""
     def __init__(self, **data):
         # Get this from Dinger documentation
         self.public_key = RSA.import_key(
             "-----BEGIN PUBLIC KEY-----\n"
-            + "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCFD4IL1suUt/TsJu6zScnvsEdLPuACgBdjX82QQf8NQlFHu2v/84dztaJEyljv3TGPuEgUftpC9OEOuEG29z7z1uOw7c9T/luRhgRrkH7AwOj4U1+eK3T1R+8LVYATtPCkqAAiomkTU+aC5Y2vfMInZMgjX0DdKMctUur8tQtvkwIDAQAB"
+            + "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCFD4IL1suUt/"
+            +"TsJu6zScnvsEdLPuACgBdjX82QQf8NQlFHu2v/84dztaJEyljv3TGPuEgUftpC9OEOuEG29z7z1uOw7c9T/"
+            +"luRhgRrkH7AwOj4U1+eK3T1R+8LVYATtPCkqAAiomkTU+aC5Y2vfMInZMgjX0DdKMctUur8tQtvkwIDAQAB"
             + "\n-----END PUBLIC KEY-----"
         )
         self.encoded_data = json.dumps(data).encode("utf-8")
@@ -39,8 +76,8 @@ class EncryptRSA:
                 cipher_text = b"".join(res)
         except Exception as e:
             print(e)
-        else:
-            return base64.b64encode(cipher_text).decode()
+            return None
+        return base64.b64encode(cipher_text).decode()
 
     @staticmethod
     def generate_rsa_key():
@@ -88,23 +125,32 @@ class EncryptRSA:
             # For example, if the private key is invalid or decryption fails
             print(e)
             return None
-        else:
-            # Display the decrypted result as a UTF-8 encoded string
-            return decrypted_data.decode("utf-8")
+        # Display the decrypted result as a UTF-8 encoded string
+        return decrypted_data.decode("utf-8")
 
     @staticmethod
     def pay(baseurl, data, secretkey):
+        """Prepares and returns the URL for payment request with encrypted payload and hash value.
+        Args:
+            baseurl (str): The base URL for the payment request.
+            data (dict): The data to be encrypted and sent in the payment request.
+            secretkey (str): The secret key used for generating HMAC-SHA256 hashes.
+        Returns:
+            tuple: A tuple containing the final URL, encrypted payload, and hash value.
+        Raises:
+            ValueError: If the secret key is not provided or if the data is not a dictionary.
+        """
         # get from checkout-form page
         # encrypt
         encrypt_rsa = EncryptRSA(**data)
-        encryptedPayload, hashValue = (
+        encrypted_payload, hash_value = (
             encrypt_rsa.encrypt(),
             encrypt_rsa.generate_hash_value(secretkey),
         )
         # calculate hash
         # send GET request to this final url
         return (
-            f"{baseurl}?{urlencode({'payload': encryptedPayload, 'hashValue': hashValue}, quote_via=quote_plus)}",
-            encryptedPayload,
-            hashValue,
+            f"{baseurl}?{urlencode({'payload': encrypted_payload, 'hashValue': hash_value}, quote_via=quote_plus)}",
+            encrypted_payload,
+            hash_value,
         )

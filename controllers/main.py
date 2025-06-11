@@ -1,35 +1,43 @@
-import logging
+# -*- coding: utf-8 -*-
+# pylint: disable=missing-class-docstring,missing-function-docstring
 import json
 from datetime import datetime
-from odoo import http
 from odoo.http import route, request, Controller
 from .decryption_aes_ecb_pkcs7padding import decrypt
+from ..dataclasses.datamodels import JournalCodeEnum, TransactionStatusEnum
+
+@staticmethod
+def convert_paid_at(date_str: str) -> str:
+    """Convert the date string from Dinger format to Odoo format."""
+    return datetime.strptime(date_str, "%Y%m%d %H%M%S").strftime("%Y-%m-%d %H:%M:%S")
 
 class DingerPayController(Controller):
-    _webhook_url = '/payment/dinger/webhook'
-    secret_key = 'd655c33205363f5450427e6b6193e466'
+    _webhook_url = "/payment/dinger/webhook"
+    secret_key = "d655c33205363f5450427e6b6193e466"
 
-    @route(_webhook_url, type='http', auth='none', csrf=False, methods=['POST'])
+    @route(_webhook_url, type="http", auth="none", csrf=False, methods=["POST"])
     def dinger_webhook(self, **post):
 
-        #post will return like that
+        # post will return like that
         # """{
-        # “paymentResult":"5zDOSGSI / YE7wsmX / IlBZb6iH0NpwgRuUL13RY9sEKIvo8oebHCh1FKZ0MKTkvlKPQ6Cn2qYg7UDQssBuMbkVAGWcVPK0WvvrrACrx480jdydrNUcsqX4vsaqHuRlCQa / 7
-        #     Qfur + W6WNKO4exvOvN25FtE8hDB7ENu37r54wUlGC21bojhq9M15 / Ql5P9 + w1x / +Ep13nmyptGOHfI4a4V3D57v0HQ8KqUnOy5P6E4FYOSeOVeVuCJ516RK94OIVAUB3F9jqy4NLm9jqc243pWOR9fwGJK5YplMbOuQFEZKt0 = ",
+        # “paymentResult":"5zDOSGSI / YE7wsmX / "
+        # +"IlBZb6iH0NpwgRuUL13RY9sEKIvo8oebHCh1FKZ0MKTkvlKPQ6Cn2qYg7UDQssBuMbkVAGWcVPK0WvvrrACrx480jdydrNUcsqX4vsaqHuRlCQa / 7"
+        # +"Qfur + W6WNKO4exvOvN25FtE8hDB7ENu37r54wUlGC21bojhq9M15 / Ql5P9 + w1x / "
+        # +"Ep13nmyptGOHfI4a4V3D57v0HQ8KqUnOy5P6E4FYOSeOVeVuCJ516RK94OIVAUB3F9jqy4NLm9jqc243pWOR9fwGJK5YplMbOuQFEZKt0 = ",
         # “checksum":"3e6dc224539d382f300f658a26775e75029b26ba0b885196e7ec66feb6a756ae"
         # }"""
 
-        #Get the value of payment result and checksum
-        payment_result=post.get('paymentResult')
-        check_sum=post.get('checksum')
+        # Get the value of payment result and checksum
+        payment_result = post.get("paymentResult")
+        # check_sum = post.get("checksum")
 
         # Then need to decrypt using
         # paymentResult(Needs to decrypt the paymentResult response with Base64 first and then with AES / ECB / PKCS7Padding algorithm)
         # checksum(sha256(jsonString(resultObj))
         # Testing Callback Key - d655c33205363f5450427e6b6193e466
 
-        #Decrypt the payment result
-        decrypted_str=decrypt(self.secret_key,payment_result)
+        # Decrypt the payment result
+        decrypted_str = decrypt(self.secret_key, payment_result)
         try:
             result = json.loads(decrypted_str)
         except json.JSONDecodeError:
@@ -37,57 +45,23 @@ class DingerPayController(Controller):
             print(decrypted_str)
             raise
 
-        ref = result.get('merchantOrderId')
-        payment_id = result.get('transactionId')
-        status = result.get('transactionStatus')
-        total_amount=result.get('totalAmount')
-        # created_at=result.get('createdAt')
-        provider_name=result.get('providerName')
-        method_name=result.get('methodName')
-        customer_name=result.get('customerName')
-
-        try:
-            total_amount = float(total_amount)
-        except (ValueError, TypeError):
-            total_amount = 0.0
-
-        #Check the transaction_id is check in the mode to make update or write
-        transaction = request.env['payment.transaction.status'].sudo().search([
-            ('transaction_id', '=', ref)
-        ], limit=1)
-
-        # Write data to payment transaction status model as a record.
-        values = {
-            'reference': payment_id,
-            'provider_name': provider_name,
-            'received_method': method_name,
-            'customer_name':customer_name,
-            'total': total_amount,
-            'state': status.lower(),
-            'paid_at': datetime.now()
+        # Prepare data for model processing
+        webhook_data = {
+            "merchant_order": result.get("merchantOrderId"),
+            "reference": result.get("transactionId"),
+            "state": TransactionStatusEnum.get_internal_value(
+                result.get("transactionStatus")
+            ),
+            "total": float(result.get("totalAmount", 0.0) or 0.0),
+            "provider_name": JournalCodeEnum.get_internal_value(
+                result.get("providerName")
+            ),
+            "received_method": result.get("methodName"),
+            "customer_name": result.get("customerName"),
+            "paid_at": convert_paid_at(result.get("createdAt", "")),
         }
+        # Delegate all business logic to the model
+        request.env["payment.transaction"].sudo().process_dinger_webhook(webhook_data)
 
-        if transaction:
-            # Update the existing record
-            transaction.write(values)
-        else:
-            # Create a new record
-            request.env['payment.transaction.status'].sudo().create(values)
-
-
-
-        #Notify the system to make payment status is set_done
-        tx = request.env['payment.transaction'].sudo()._get_tx_from_notification_data('dinger', {
-            'ref': ref,
-            'payment_id': payment_id,
-            'status': status,
-            'provider_name':provider_name,
-        })
-
-        tx._process_notification_data({
-            'payment_id': payment_id,
-            'status': status
-        })
-
-        #Redirect to the payment success page
-        return request.redirect('/payment/status')
+        # Redirect to the payment success page
+        return request.redirect("/payment/status")

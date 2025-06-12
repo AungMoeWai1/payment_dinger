@@ -1,25 +1,13 @@
-name: Pylint
+name: Use Shared Lint Workflow (Python Only)
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'  # or your project's Python version
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pylint
-
-      - name: Run pylint
-        run: |
-          pylint --rcfile=.pylintrc $(git ls-files '*.py')
+    uses: waiyankyawsdk/ci-templates/.github/workflows/lint.yml@main
+    with:
+      run_pylint: true
+      run_eslint: false

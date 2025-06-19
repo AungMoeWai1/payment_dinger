@@ -4,9 +4,7 @@ from ..dataclasses.datamodels import JournalCodeEnum
 
 
 class AccountJournal(models.Model):
-    """
-    Implement require credentials to use in journal
-    """
+    """Implement require credentials to use in journal"""
     _inherit = "account.journal"
 
     commission_tax_percentage = fields.Float(string="Bank transaction Percentage")

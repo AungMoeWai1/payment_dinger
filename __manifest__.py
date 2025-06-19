@@ -6,11 +6,11 @@
     "category": "Accounting/Payment Providers",
     "summary": "A payment provider.",
     "description": " ",  # Non-empty string to avoid loading the README file.
-    "depends": ["payment", "website_sale", "sale_management"],
+    "depends": ["account", "dinger_mixin", "payment", "sale_management", "website_sale"],
     "data": [
         #Views
         "views/payment_dinger_templates.xml",
-        "views/payment_provider_views.xml",
+        # "views/payment_provider_views.xml",
         "views/account_jorunal_view.xml",
         "views/payment_transaction_status_views.xml",
 

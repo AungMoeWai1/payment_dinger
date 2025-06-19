@@ -1,17 +1,17 @@
 """
 After start creating new transaction, override my operations
 """
-
+import json
 import logging
 
-import requests
 
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
-from ..dataclasses.datamodels import (JournalCodeEnum,
-                                      TransactionStatusEnum,
-                                      TransactionEnum)
+from ...dinger_mixin.dataclasses.datamodels import (CredentialsEnum,
+                                                 JournalCodeEnum,
+                                                 TransactionEnum,
+                                                 TransactionStatusEnum)
 
 _logger = logging.getLogger(__name__)
 
@@ -24,10 +24,14 @@ class PaymentTransaction(models.Model):
     and to start url redirect , put it in the rendering_values
     """
 
-    _inherit = "payment.transaction"
+    _name = "payment.transaction"
+    _inherit = ["payment.transaction", "dinger.mixin"]
+
     provider_name = fields.Selection(
         selection=JournalCodeEnum.get_selection(), string="Provider Name"
     )
+
+    # ===  BUSINESS METHODS   ===#
 
     def _get_transaction_status_values(self):
         """Return the values dict for payment.transaction.status for the current transaction."""
@@ -53,7 +57,7 @@ class PaymentTransaction(models.Model):
     def _prepare_dinger_data(self):
         """Create the payload for the preference request based on the transaction values."""
         self.ensure_one()
-        user_lang = self.env.context.get("lang")
+        config = self._get_dinger_config()
         if self.sale_order_ids:
             sale_order = self.sale_order_ids[0]
             country_code = self.get_country_code(sale_order.partner_id.country_id.name)
@@ -76,24 +80,37 @@ class PaymentTransaction(models.Model):
                 )
 
             return {
-                "clientId": self.partner_id.id,
-                "providerName": self.payment_method_id.name,
-                "totalAmount": sale_order.amount_total,
-                "orderId": sale_order.name,
-                "email": self.partner_id.email,
-                "state": self.partner_id.state_id.name,
-                "customerPhone": self.partner_id.phone,
+                "items": json.dumps(items) or [],
                 "customerName": self.partner_id.name,
-                "postalCode": self.partner_id.zip,
-                "billAddress": self.partner_id.street,
+                "totalAmount": float(sale_order.amount_total),
+                "merchantOrderId": sale_order.name,
+                "clientId": config.get(CredentialsEnum.CLIENT_ID.value),
+                "publicKey": config.get(CredentialsEnum.PUBLIC_KEY.value),
+                "merchantKey": config.get(CredentialsEnum.API_KEY.value),
+                "projectName": config.get(CredentialsEnum.PROJECT.value),
+                "merchantName": config.get(CredentialsEnum.MERCHANT.value),
+                "providerName": self.payment_method_id.name,
+                "email": self.partner_id.email,
                 "billCity": self.partner_id.city,
-                "items": items,
-                "description": self.reference,
-                "locale": user_lang,
-                "country": country_code,
+                "billAddress": self.partner_id.street,
+                "state": self.partner_id.state_id.name,
+                "country": country_code or "MM",  # Default to Myanmar if country code not found
                 "currency": self.currency_id.name,
+                "postalCode": self.partner_id.zip or "15015",
             }
         return None
+
+    # To request for payment by send payload
+    def dinger_make_request(self):
+        """
+        Collect data
+        encrypt with rsa using public key
+        change it to base64 to get payload
+        hash value is get from hmac sha256 by encrypting using secret key and data
+        return url to browse
+        """
+        self.ensure_one()
+        return self.dinger_form_pay(data=self._prepare_dinger_data())
 
     def _get_specific_rendering_values(self, transaction):
         """This method is called to render the payment page and redirect to Dinger's checkout form."""
@@ -103,9 +120,7 @@ class PaymentTransaction(models.Model):
             return res
 
         # Make the request to Dinger to create the payment
-        url, encrypted_payload, hash_value = self.provider_id.dinger_make_request(
-            resource_data=self._prepare_dinger_data()
-        )
+        url, encrypted_payload, hash_value = self.dinger_make_request()
 
         # Create payment.transaction.status record
         self.create_payment_transaction_status()
@@ -117,29 +132,6 @@ class PaymentTransaction(models.Model):
             "hashValue": hash_value
         }
         return rendering_values
-
-    def get_country_code(self, country):
-        """Get the country code for a given country name.
-        This method fetches the country code from Dinger's API based on the provided country name.
-        It returns the country code if found, otherwise returns None.
-        :param country: The name of the country for which to get the code.
-        :type country: str
-        :return: The country code if found, otherwise None.
-        :rtype: str or None
-        """
-        url = (
-            "https://staging.dinger.asia/payment-gateway-uat/api/countryCodeListEnquiry"
-        )
-        response = requests.get(url, timeout=120)
-        if response.ok:
-            data = response.json()
-            print("Dinger Country Code getting success...")
-            country_list = data.get("response", [])
-            for entry in country_list:
-                countries = entry.get("country", "").lower()
-                if country.lower() in countries:
-                    return entry.get("code")
-        return None
 
     def _get_tx_from_notification_data(self, provider_code, notification_data):
         tx = super()._get_tx_from_notification_data(provider_code, notification_data)

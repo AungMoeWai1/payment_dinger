@@ -3,7 +3,6 @@
 import json
 from datetime import datetime
 from odoo.http import route, request, Controller
-from .decryption_aes_ecb_pkcs7padding import decrypt
 from ..dataclasses.datamodels import JournalCodeEnum, TransactionStatusEnum
 
 @staticmethod
@@ -13,7 +12,7 @@ def convert_paid_at(date_str: str) -> str:
 
 class DingerPayController(Controller):
     _webhook_url = "/payment/dinger/webhook"
-    secret_key = "d655c33205363f5450427e6b6193e466"
+    # secret_key = "d655c33205363f5450427e6b6193e466"
 
     @route(_webhook_url, type="http", auth="none", csrf=False, methods=["POST"])
     def dinger_webhook(self, **post):
@@ -37,7 +36,8 @@ class DingerPayController(Controller):
         # Testing Callback Key - d655c33205363f5450427e6b6193e466
 
         # Decrypt the payment result
-        decrypted_str = decrypt(self.secret_key, payment_result)
+        decrypted_str = request.env["payment.transaction"].sudo().aes_decrypt(payment_result,"prebuilt")
+
         try:
             result = json.loads(decrypted_str)
         except json.JSONDecodeError:

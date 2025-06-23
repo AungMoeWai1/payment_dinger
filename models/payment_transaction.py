@@ -84,10 +84,10 @@ class PaymentTransaction(models.Model):
                 "customerName": self.partner_id.name,
                 "totalAmount": float(sale_order.amount_total),
                 "merchantOrderId": sale_order.name,
-                "clientId": config.get(CredentialsEnum.CLIENT_ID.value),
-                "publicKey": config.get(CredentialsEnum.PUBLIC_KEY.value),
-                "merchantKey": config.get(CredentialsEnum.API_KEY.value),
-                "projectName": config.get(CredentialsEnum.PROJECT.value),
+                "clientId": config.get(CredentialsEnum.PREBUILT_CLIENT_ID.value),
+                "publicKey": config.get(CredentialsEnum.PREBUILT_PUBLIC_KEY.value),
+                "merchantKey": config.get(CredentialsEnum.PREBUILT_API_KEY.value),
+                "projectName": config.get(CredentialsEnum.PREBUILT_PROJECT.value),
                 "merchantName": config.get(CredentialsEnum.MERCHANT.value),
                 "providerName": self.payment_method_id.name,
                 "email": self.partner_id.email,
@@ -121,6 +121,8 @@ class PaymentTransaction(models.Model):
 
         # Make the request to Dinger to create the payment
         url, encrypted_payload, hash_value = self.dinger_make_request()
+
+        print(url)
 
         # Create payment.transaction.status record
         self.create_payment_transaction_status()

@@ -3,6 +3,7 @@
     "name": "payment_dinger",
     "version": "1.0",
     "author": "SME Intellect",
+    'website': "https://www.smeintellect.com",
     "category": "Accounting/Payment Providers",
     "summary": "A payment provider.",
     "description": " ",  # Non-empty string to avoid loading the README file.

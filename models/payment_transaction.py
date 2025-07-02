@@ -122,8 +122,6 @@ class PaymentTransaction(models.Model):
         # Make the request to Dinger to create the payment
         url, encrypted_payload, hash_value = self.dinger_make_request()
 
-        print(url)
-
         # Create payment.transaction.status record
         self.create_payment_transaction_status()
 
